@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>猜猜我在哪裡 - 迷宮遊戲</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    touch-action: manipulation; overflow: hidden;
+  }
+  .container {
+    background: rgba(255,255,255,0.93);
+    border-radius: 48px; padding: 18px;
+    max-width: 560px; width: 100%;
+    max-height: 98vh; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    position: relative; overflow-y: auto;
+  }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* TOP BAR */
+  .top-bar {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+  }
+  .top-bar .student { font-size: 0.85em; color: #888; font-weight: 600; }
+  .top-bar .controls { display: flex; gap: 8px; }
+  .top-bar .ctrl-btn {
+    background: rgba(0,0,0,0.05); border: none; border-radius: 16px;
+    width: 40px; height: 40px; font-size: 1.1em; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .top-bar .ctrl-btn:active { transform: scale(0.9); }
+  .top-bar .ctrl-btn.music-on { background: #d4edda; animation: pulseGlow 1.5s infinite; }
+  @keyframes pulseGlow { 0%,100%{box-shadow:0 0 0 0 rgba(40,167,69,0.25)} 50%{box-shadow:0 0 0 8px rgba(40,167,69,0)} }
+
+  /* WELCOME */
+  .welcome { text-align: center; padding: 16px 0 8px; }
+  .welcome h1 { font-size: 2.4em; color: #e8546b; }
+  .welcome h1 span { display: inline-block; animation: titleBounce 2s infinite; }
+  @keyframes titleBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+  .welcome .sub { font-size: 1em; color: #999; margin-bottom: 16px; }
+  .welcome .mascot { font-size: 5em; display: block; margin: 8px 0; animation: mascotFloat 3s ease-in-out infinite; }
+  @keyframes mascotFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-16px)} }
+  .start-btn {
+    background: linear-gradient(135deg, #ff9ff3, #f368e0);
+    border: none; border-radius: 32px; padding: 18px 50px;
+    font-size: 1.5em; font-weight: 700; color: #fff;
+    cursor: pointer; box-shadow: 0 6px 0 rgba(0,0,0,0.12); margin-top: 12px;
+  }
+  .start-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.12); }
+
+  /* THEME */
+  .theme-grid { display: flex; flex-direction: column; gap: 12px; padding: 8px 0; }
+  .theme-btn {
+    border: none; border-radius: 32px; padding: 22px 18px;
+    font-size: 1.4em; font-weight: 700; color: #fff;
+    cursor: pointer; box-shadow: 0 6px 0 rgba(0,0,0,0.12); text-align: center;
+  }
+  .theme-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.12); }
+  .theme-btn .big-icon { font-size: 2.2em; display: block; margin-bottom: 4px; }
+  .theme-btn.t1 { background: linear-gradient(135deg, #ff9ff3, #f368e0); }
+  .theme-btn.t2 { background: linear-gradient(135deg, #54a0ff, #2e86de); }
+  .theme-btn.t3 { background: linear-gradient(135deg, #ff9f43, #ee5a24); }
+
+  /* HEADER */
+  .game-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+  }
+  .game-header h2 { font-size: 1.3em; color: #5a3d8a; }
+  .back-btn {
+    background: rgba(0,0,0,0.06); border: none; border-radius: 18px;
+    padding: 8px 16px; font-size: 1.2em; cursor: pointer; color: #666;
+  }
+  .back-btn:active { background: rgba(0,0,0,0.12); transform: scale(0.92); }
+
+  /* LEVEL SELECT */
+  .level-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 10px 0;
+  }
+  .level-btn {
+    aspect-ratio: 1; border: 4px solid #d4b8ff; border-radius: 20px;
+    background: #fff; font-size: 1.4em; font-weight: 700; color: #5a3d8a;
+    cursor: pointer; box-shadow: 0 4px 0 rgba(0,0,0,0.08);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .level-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,0.08); }
+  .level-btn.active { background: #5a3d8a; color: #fff; border-color: #5a3d8a; }
+  .level-btn .lv-icon { font-size: 1.8em; }
+  .level-btn .lv-label { font-size: 0.5em; font-weight: 400; }
+
+  /* MAZE */
+  .maze-info {
+    display: flex; align-items: center; justify-content: center; gap: 20px;
+    padding: 8px; background: rgba(245,240,255,0.5); border-radius: 20px; margin: 6px 0 10px;
+  }
+  .maze-info .char { font-size: 2.2em; }
+  .maze-info .arrow-icon { font-size: 1.5em; color: #aaa; }
+  .maze-info .goal { font-size: 2.2em; }
+
+  .maze-grid {
+    display: grid; gap: 3px; justify-content: center; margin: 6px auto;
+    max-width: 100%;
+  }
+  .maze-cell {
+    aspect-ratio: 1; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6em; transition: background 0.15s;
+  }
+  .maze-cell.wall { background: #5a3d8a; }
+  .maze-cell.path { background: #f0e8ff; }
+  .maze-cell.path.dim { background: #e8dff5; }
+  .maze-cell.player { background: #d4edda; box-shadow: 0 0 0 3px #5a9e5a; }
+  .maze-cell.goal-cell { background: #fff8e0; box-shadow: 0 0 0 3px #ffd700; }
+
+  /* CONTROLS */
+  .controls-row {
+    display: flex; justify-content: center; gap: 10px; margin: 10px 0;
+  }
+  .controls-grid {
+    display: grid;
+    grid-template-areas:
+      ". up ."
+      "left down right";
+    grid-template-columns: repeat(3, 66px);
+    grid-template-rows: 66px 66px;
+    gap: 6px; justify-content: center;
+  }
+  .dir-btn {
+    border: none; border-radius: 18px; font-size: 1.8em; cursor: pointer;
+    background: #fff; box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+    display: flex; align-items: center; justify-content: center;
+    transition: 0.05s; user-select: none;
+  }
+  .dir-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,0.1); }
+  .dir-btn.up { grid-area: up; }
+  .dir-btn.down { grid-area: down; }
+  .dir-btn.left { grid-area: left; }
+  .dir-btn.right { grid-area: right; }
+
+  /* STATUS */
+  .status-row {
+    display: flex; align-items: center; justify-content: space-between; margin: 6px 0;
+  }
+  .status-row .steps { font-size: 0.9em; color: #888; }
+  .hint-text { text-align: center; font-size: 0.95em; color: #aaa; margin: 4px 0; }
+
+  /* CELEBRATION */
+  .celebration {
+    position: fixed; top:0; left:0; width:100%; height:100%;
+    display: none; align-items:center; justify-content:center; z-index:999;
+    background: rgba(0,0,0,0.3);
+  }
+  .celebration.show { display:flex; }
+  .celeb-box {
+    background:#fff; border-radius:48px; padding:32px 36px;
+    text-align:center; animation:celebPop 0.5s ease; max-width:85vw;
+    box-shadow:0 20px 60px rgba(0,0,0,0.3);
+  }
+  @keyframes celebPop { 0%{transform:scale(0)rotate(-10deg)} 60%{transform:scale(1.12)rotate(3deg)} 100%{transform:scale(1)rotate(0)} }
+  .celeb-box .big-icon { font-size:4em; display:block; }
+  .celeb-box .msg { font-size:1.8em; font-weight:700; color:#5a3d8a; margin:8px 0; }
+  .celeb-box .sub { font-size:0.95em; color:#888; margin-bottom:14px; }
+  .celeb-box .btn-group { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  .celeb-box .btn {
+    border:none; border-radius:24px; padding:12px 28px;
+    font-size:1.1em; font-weight:700; color:#fff;
+    cursor:pointer; box-shadow:0 4px 0 rgba(0,0,0,0.12);
+  }
+  .celeb-box .btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,0.12); }
+  .celeb-box .btn.pink { background:linear-gradient(135deg,#ff9ff3,#f368e0); }
+  .celeb-box .btn.blue { background:linear-gradient(135deg,#54a0ff,#2e86de); }
+  .celeb-box .btn.green { background:linear-gradient(135deg,#1dd1a1,#10ac84); }
+
+  /* REFLECTION */
+  .reflection { text-align:center; padding:8px 0; }
+  .reflection .title { font-size:1.6em; font-weight:700; color:#5a3d8a; margin-bottom:14px; }
+  .reflection .text {
+    font-size:0.95em; color:#555; line-height:1.9; text-align:left;
+    padding:18px; background:#f8f4ff; border-radius:24px;
+    border:2px solid #e0d0ff; margin-bottom:14px;
+  }
+  .reflection .text p { margin-bottom:10px; }
+  .reflection .text p:last-child { margin-bottom:0; }
+
+  /* CONFETTI */
+  .confetti-box { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:1000; overflow:hidden; }
+  .c { position:absolute; width:10px; height:10px; top:-10px; border-radius:3px; animation:cFall linear forwards; }
+  @keyframes cFall { 0%{transform:translateY(0)rotate(0);opacity:1} 100%{transform:translateY(110vh)rotate(720deg);opacity:0} }
+
+  @media (max-width:420px) {
+    .container { padding:12px; border-radius:32px; }
+    .welcome h1 { font-size:1.7em; }
+    .welcome .mascot { font-size:3.5em; }
+    .start-btn { padding:14px 36px; font-size:1.2em; }
+    .theme-btn { padding:16px 12px; font-size:1.1em; }
+    .theme-btn .big-icon { font-size:1.6em; }
+    .maze-cell { font-size:1.2em; }
+    .controls-grid { grid-template-columns:repeat(3,54px); grid-template-rows:54px 54px; }
+    .dir-btn { font-size:1.4em; }
+    .celeb-box { padding:24px; }
+    .celeb-box .big-icon { font-size:3em; }
+    .celeb-box .msg { font-size:1.3em; }
+    .reflection .text { font-size:0.82em; padding:12px; }
+    .level-btn { font-size:1.1em; }
+    .maze-info .char { font-size:1.6em; }
+    .maze-info .goal { font-size:1.6em; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container" id="app">
+  <div class="top-bar">
+    <div class="student">81410348 莊紫淇</div>
+    <div class="controls">
+      <button class="ctrl-btn" id="musicBtn" onclick="toggleMusic()">🔇</button>
+    </div>
+  </div>
+
+  <!-- WELCOME -->
+  <div class="screen active" id="screenWelcome">
+    <div class="welcome">
+      <h1><span>❓</span> 猜猜我在哪裡</h1>
+      <p class="sub">迷宮遊戲 × 三種主題</p>
+      <span class="mascot">🧭</span>
+      <div><button class="start-btn" onclick="showTheme()">開始玩 🎮</button></div>
+    </div>
+  </div>
+
+  <!-- THEME -->
+  <div class="screen" id="screenTheme">
+    <div class="game-header">
+      <h2>🎯 選擇主題</h2>
+      <button class="back-btn" onclick="showWelcome()">‹</button>
+    </div>
+    <div class="theme-grid">
+      <button class="theme-btn t1" onclick="selectTheme('animals')">
+        <span class="big-icon">🐾</span>動物王國
+        <span style="font-size:0.45em;display:block;opacity:0.8;font-weight:400">走出迷宮找到動物</span>
+      </button>
+      <button class="theme-btn t2" onclick="selectTheme('vehicles')">
+        <span class="big-icon">🚗</span>交通工具
+        <span style="font-size:0.45em;display:block;opacity:0.8;font-weight:400">開出迷宮到達終點</span>
+      </button>
+      <button class="theme-btn t3" onclick="selectTheme('fruits')">
+        <span class="big-icon">🍎</span>水果樂園
+        <span style="font-size:0.45em;display:block;opacity:0.8;font-weight:400">走出果園找到水果</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- LEVEL -->
+  <div class="screen" id="screenLevel">
+    <div class="game-header">
+      <h2 id="levelTitle">🐾 動物王國</h2>
+      <button class="back-btn" onclick="showTheme()">‹</button>
+    </div>
+    <p style="text-align:center;color:#aaa;font-size:0.9em;margin:4px 0 8px">選擇關卡</p>
+    <div class="level-grid" id="levelGrid"></div>
+  </div>
+
+  <!-- GAME -->
+  <div class="screen" id="screenGame">
+    <div class="game-header">
+      <h2 id="gameTitle">🐾 動物王國 Lv.1</h2>
+      <div>
+        <button class="back-btn" onclick="showLevel()">‹</button>
+      </div>
+    </div>
+    <div class="maze-info">
+      <span class="char" id="mazeChar">🐱</span>
+      <span class="arrow-icon">→</span>
+      <span class="goal" id="mazeGoal">⭐</span>
+    </div>
+    <div class="maze-grid" id="mazeGrid"></div>
+    <div class="controls-row">
+      <div class="controls-grid">
+        <button class="dir-btn up" onclick="movePlayer(0,-1)">⬆</button>
+        <button class="dir-btn left" onclick="movePlayer(-1,0)">⬅</button>
+        <button class="dir-btn down" onclick="movePlayer(0,1)">⬇</button>
+        <button class="dir-btn right" onclick="movePlayer(1,0)">➡</button>
+      </div>
+    </div>
+    <div class="status-row">
+      <span class="steps" id="stepsLabel">🏃 0 步</span>
+      <span class="steps" id="hintLabel">👆 按箭頭方向移動</span>
+    </div>
+    <div class="hint-text" id="levelHint">找到出口就過關！</div>
+  </div>
+
+  <!-- CELEBRATION OVERLAY -->
+  <div class="celebration" id="celebration">
+    <div class="celeb-box">
+      <span class="big-icon" id="celebIcon">🎉</span>
+      <div class="msg" id="celebMsg">過關！</div>
+      <div class="sub" id="celebSub"></div>
+      <div class="btn-group" id="celebBtns"></div>
+    </div>
+  </div>
+
+  <!-- REFLECTION -->
+  <div class="screen" id="screenReflection">
+    <div class="game-header">
+      <h2>💭 學習心得</h2>
+      <button class="back-btn" onclick="showWelcome()">‹</button>
+    </div>
+    <div class="reflection">
+      <div class="title">81410348 莊紫淇</div>
+      <div class="text">
+        <p>這次 AI 電腦課讓我收穫很多，也對人工智慧有了更深入的認識。上課過程中，老師介紹了 AI 的基本概念、應用方式以及未來發展趨勢，讓我了解到人工智慧已經廣泛運用在生活中的各個領域，例如語音助理、智慧推薦系統和自動翻譯等。透過實際操作，我學會如何利用 AI 工具協助完成資料搜尋、文章整理及創意發想，不僅提高效率，也讓學習變得更加有趣。</p>
+        <p>此外，我也了解到 AI 雖然功能強大，但仍需要人類正確使用與判斷，才能發揮最大的價值。這堂課讓我體會到科技進步的快速，也激發了我對資訊科技的興趣。未來我希望能持續學習相關知識，善用 AI 技術來幫助自己學習與解決問題，培養面對未來社會所需要的能力。</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="confetti-box" id="confettiBox"></div>
+
+<script>
+// ============================
+// MAZE DATA
+// ============================
+// 0=path, 1=wall, 2=start, 3=goal
+const THEMES = {
+  animals: {
+    name: '🐾 動物王國',
+    char: '🐱', goal: '⭐',
+    levels: [
+      {
+        name: 'Lv.1',
+        grid: [
+          [2,0,0,0],
+          [1,1,1,0],
+          [0,0,0,0],
+          [0,0,0,3],
+        ],
+      },
+      {
+        name: 'Lv.2',
+        grid: [
+          [2,0,1,0,3],
+          [0,0,1,0,0],
+          [0,0,0,0,0],
+          [1,0,1,1,0],
+          [0,0,0,0,0],
+        ],
+      },
+      {
+        name: 'Lv.3',
+        grid: [
+          [2,0,0,1,0],
+          [1,1,0,1,0],
+          [0,0,0,0,0],
+          [0,1,1,0,0],
+          [0,0,0,0,3],
+        ],
+      },
+    ],
+  },
+  vehicles: {
+    name: '🚗 交通工具',
+    char: '🚗', goal: '🏁',
+    levels: [
+      {
+        name: 'Lv.1',
+        grid: [
+          [2,0,0,0],
+          [0,0,1,0],
+          [1,0,1,0],
+          [0,0,0,3],
+        ],
+      },
+      {
+        name: 'Lv.2',
+        grid: [
+          [2,0,0,1,3],
+          [1,1,0,1,0],
+          [0,0,0,0,0],
+          [0,1,0,1,0],
+          [0,0,0,0,0],
+        ],
+      },
+      {
+        name: 'Lv.3',
+        grid: [
+          [2,1,0,0,0],
+          [0,1,0,1,0],
+          [0,0,0,1,0],
+          [1,0,0,0,0],
+          [0,0,1,0,3],
+        ],
+      },
+    ],
+  },
+  fruits: {
+    name: '🍎 水果樂園',
+    char: '🍎', goal: '🧺',
+    levels: [
+      {
+        name: 'Lv.1',
+        grid: [
+          [2,0,0,0],
+          [0,1,0,0],
+          [0,1,0,0],
+          [0,0,0,3],
+        ],
+      },
+      {
+        name: 'Lv.2',
+        grid: [
+          [2,0,0,0,0],
+          [0,1,1,1,0],
+          [0,0,0,0,0],
+          [0,1,1,1,0],
+          [0,0,0,0,3],
+        ],
+      },
+      {
+        name: 'Lv.3',
+        grid: [
+          [2,0,0,1,0],
+          [0,1,0,1,0],
+          [0,0,0,0,0],
+          [0,1,1,0,0],
+          [0,0,0,0,3],
+        ],
+      },
+    ],
+  },
+};
+
+const THEME_ORDER = ['animals', 'vehicles', 'fruits'];
+
+// ============================
+// STATE
+// ============================
+let currentTheme = 'animals';
+let currentLevel = 0;
+let px = 0, py = 0; // player pos
+let gx = 0, gy = 0; // goal pos
+let grid = [];
+let steps = 0;
+let moved = false;
+let completed = {};
+let musicOn = false;
+let bgmInterval = null;
+let touchStartX = 0, touchStartY = 0;
+
+// ============================
+// AUDIO
+// ============================
+let actx = null;
+function initAudio() {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+}
+function playNote(freq, dur, type='sine', vol=0.1) {
+  try { initAudio(); const o=actx.createOscillator(), g=actx.createGain(); o.connect(g); g.connect(actx.destination); o.type=type; o.frequency.value=freq; g.gain.value=vol; g.gain.exponentialRampToValueAtTime(0.001,actx.currentTime+dur); o.start(); o.stop(actx.currentTime+dur); } catch(e){}
+}
+function sfxStep() { playNote(440,0.06,'triangle',0.06); }
+function sfxWall() { playNote(180,0.15,'sawtooth',0.04); }
+function sfxGoal() { playNote(523,0.06);setTimeout(()=>playNote(659,0.06),70);setTimeout(()=>playNote(784,0.06),140);setTimeout(()=>playNote(1047,0.2),210); }
+function sfxCeleb() { sfxGoal(); }
+
+const BGM_A=[523,659,784,1047,784,659,523,784,659,523,659,784,1047,1175,1047,784];
+const BGM_B=[392,523,659,784,659,523,392,523,659,784,880,784,659,523,392,523];
+let bgmPhase=0;
+
+function startBGM() {
+  if(bgmInterval)return;
+  let i=0;
+  const play=()=>{if(!musicOn||!actx)return;const m=bgmPhase===0?BGM_A:BGM_B;const f=m[i%m.length];playNote(f,0.22,'triangle',0.06);setTimeout(()=>playNote(f/2,0.22,'sine',0.02),40);i++;if(i%m.length===0)bgmPhase=(bgmPhase+1)%2;};
+  play(); bgmInterval=setInterval(play,380);
+}
+function stopBGM() { if(bgmInterval){clearInterval(bgmInterval);bgmInterval=null;} }
+function toggleMusic() {
+  initAudio(); musicOn=!musicOn;
+  document.getElementById('musicBtn').textContent=musicOn?'🔊':'🔇';
+  document.getElementById('musicBtn').classList.toggle('music-on',musicOn);
+  if(musicOn) startBGM(); else stopBGM();
+  localStorage.setItem('mazeMusic',musicOn?'1':'0');
+}
+
+// ============================
+// CONFETTI
+// ============================
+function confetti(count=35) {
+  const box=document.getElementById('confettiBox');
+  const colors=['#ff9ff3','#54a0ff','#ff9f43','#1dd1a1','#feca57','#c44569','#48dbfb','#f368e0'];
+  for(let i=0;i<count;i++){const e=document.createElement('div');e.className='c';e.style.left=Math.random()*100+'%';e.style.background=colors[i%colors.length];e.style.width=(7+Math.random()*8)+'px';e.style.height=(7+Math.random()*8)+'px';e.style.borderRadius=Math.random()>0.5?'50%':'2px';e.style.animationDuration=(2+Math.random()*2)+'s';e.style.animationDelay=Math.random()*0.4+'s';box.appendChild(e);setTimeout(()=>e.remove(),4500);}
+}
+
+// ============================
+// NAV
+// ============================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function showWelcome() { stopBGM(); showScreen('screenWelcome'); }
+function showTheme() { showScreen('screenTheme'); }
+function showLevel() { showScreen('screenLevel'); renderLevels(); }
+
+// ============================
+// THEME
+// ============================
+function selectTheme(theme) {
+  currentTheme=theme;
+  document.getElementById('levelTitle').textContent=THEMES[theme].name;
+  initAudio(); if(musicOn) startBGM();
+  showLevel();
+}
+
+function renderLevels() {
+  const data=THEMES[currentTheme];
+  const c=document.getElementById('levelGrid'); c.innerHTML='';
+  data.levels.forEach((lv,i)=>{
+    const b=document.createElement('button'); b.className='level-btn';
+    b.innerHTML=`<span class="lv-icon">${data.char}</span><span class="lv-label">${lv.name}</span>`;
+    if(i===currentLevel)b.classList.add('active');
+    b.onclick=()=>{currentLevel=i;startMaze();};
+    c.appendChild(b);
+  });
+}
+
+// ============================
+// MAZE
+// ============================
+function startMaze() {
+  const data=THEMES[currentTheme];
+  const lv=data.levels[currentLevel];
+  grid=lv.grid.map(r=>[...r]);
+  steps=0; moved=false;
+  document.getElementById('gameTitle').textContent=`${data.name} ${lv.name}`;
+  document.getElementById('mazeChar').textContent=data.char;
+  document.getElementById('mazeGoal').textContent=data.goal;
+  document.getElementById('levelHint').textContent='👆 按箭頭移動，找到出口！';
+  document.getElementById('stepsLabel').textContent='🏃 0 步';
+  document.getElementById('hintLabel').textContent='👆 按箭頭方向移動';
+
+  // Find start & goal
+  for(let r=0;r<grid.length;r++) for(let c=0;c<grid[0].length;c++) {
+    if(grid[r][c]===2){px=c;py=r;grid[r][c]=0;}
+    if(grid[r][c]===3){gx=c;gy=r;grid[r][c]=0;}
+  }
+
+  showScreen('screenGame');
+  renderMaze();
+}
+
+function renderMaze() {
+  const c=document.getElementById('mazeGrid');
+  const h=grid.length, w=grid[0].length;
+  c.style.gridTemplateColumns=`repeat(${w},minmax(44px,70px))`;
+
+  // Determine cell size
+  const cellSize = window.innerWidth < 420 ? 42 : Math.min(62, Math.floor((window.innerWidth-80)/w));
+  const cellPx = Math.max(36, Math.min(cellSize, 66));
+
+  c.innerHTML='';
+  for(let r=0;r<h;r++) for(let co=0;co<w;co++) {
+    const e=document.createElement('div'); e.className='maze-cell';
+    e.style.width=cellPx+'px'; e.style.height=cellPx+'px';
+    e.style.fontSize=(cellPx*0.6)+'px';
+    const v=grid[r][co];
+    if(v===1){e.classList.add('wall');}
+    else {
+      e.classList.add('path');
+      if(r===py&&co===px){e.classList.add('player');e.textContent=THEMES[currentTheme].char;}
+      else if(r===gy&&co===gx){e.classList.add('goal-cell');e.textContent=THEMES[currentTheme].goal;}
+      else if((r+co)%2===0)e.classList.add('dim');
+    }
+    c.appendChild(e);
+  }
+}
+
+function movePlayer(dx, dy) {
+  if(!document.getElementById('screenGame').classList.contains('active')) return;
+  const nx=px+dx, ny=py+dy;
+  if(ny<0||ny>=grid.length||nx<0||nx>=grid[0].length) return;
+  if(grid[ny][nx]===1) { sfxWall(); document.getElementById('hintLabel').textContent='❌ 有牆不能走喔～'; return; }
+
+  sfxStep();
+  px=nx; py=ny; steps++; moved=true;
+  document.getElementById('stepsLabel').textContent=`🏃 ${steps} 步`;
+  document.getElementById('hintLabel').textContent='👏 繼續前進！';
+  renderMaze();
+
+  // Check goal
+  if(px===gx&&py===gy) {
+    sfxGoal();
+    document.getElementById('hintLabel').textContent='🎉 找到出口了！';
+    setTimeout(()=>showMazeComplete(), 400);
+  }
+}
+
+// ============================
+// MAZE COMPLETE
+// ============================
+function showMazeComplete() {
+  sfxCeleb(); confetti(30);
+  const key=`${currentTheme}_${currentLevel}`;
+  completed[key]=true;
+
+  const stars=steps<=4?3:steps<=8?2:1;
+  document.getElementById('celebIcon').textContent=THEMES[currentTheme].char;
+  document.getElementById('celebMsg').textContent=`${THEMES[currentTheme].levels[currentLevel].name} 過關！`;
+  document.getElementById('celebSub').textContent=`用了 ${steps} 步 ${'⭐'.repeat(stars)}`;
+
+  const btns=document.getElementById('celebBtns'); btns.innerHTML='';
+
+  // Next level in same theme
+  if(currentLevel<THEMES[currentTheme].levels.length-1) {
+    const b=document.createElement('button'); b.className='btn pink';
+    b.textContent='下一關 →'; b.onclick=()=>{closeCeleb();currentLevel++;startMaze();};
+    btns.appendChild(b);
+  } else {
+    // All levels done in this theme
+    const nextIdx=THEME_ORDER.indexOf(currentTheme)+1;
+    if(nextIdx<THEME_ORDER.length) {
+      const b=document.createElement('button'); b.className='btn pink';
+      b.textContent=`下一主題 →`; b.onclick=()=>{closeCeleb();currentTheme=THEME_ORDER[nextIdx];currentLevel=0;selectTheme(currentTheme);};
+      btns.appendChild(b);
+    } else {
+      // All done!
+      const b=document.createElement('button'); b.className='btn green';
+      b.textContent='🎉 全部完成！看心得'; b.onclick=()=>{closeCeleb();showReflection();};
+      btns.appendChild(b);
+    }
+  }
+
+  const b2=document.createElement('button'); b2.className='btn blue';
+  b2.textContent='關卡選單'; b2.onclick=()=>{closeCeleb();showLevel();};
+  btns.appendChild(b2);
+
+  document.getElementById('celebration').classList.add('show');
+}
+
+function closeCeleb() { document.getElementById('celebration').classList.remove('show'); }
+
+function showReflection() { showScreen('screenReflection'); }
+
+// ============================
+// SWIPE
+// ============================
+document.addEventListener('touchstart',e=>{const t=e.touches[0];touchStartX=t.clientX;touchStartY=t.clientY;},{passive:true});
+document.addEventListener('touchend',e=>{
+  if(!document.getElementById('screenGame').classList.contains('active'))return;
+  const t=e.changedTouches[0];const dx=t.clientX-touchStartX,dy=t.clientY-touchStartY;
+  const absX=Math.abs(dx),absY=Math.abs(dy);
+  if(Math.max(absX,absY)<20)return;
+  if(absX>absY)movePlayer(dx>0?1:-1,0);
+  else movePlayer(0,dy>0?1:-1);
+},{passive:true});
+
+// Keyboard support
+document.addEventListener('keydown',e=>{
+  if(!document.getElementById('screenGame').classList.contains('active'))return;
+  switch(e.key){case'ArrowUp':e.preventDefault();movePlayer(0,-1);break;case'ArrowDown':e.preventDefault();movePlayer(0,1);break;case'ArrowLeft':e.preventDefault();movePlayer(-1,0);break;case'ArrowRight':e.preventDefault();movePlayer(1,0);break;}
+});
+
+// ============================
+// INIT
+// ============================
+const savedMusic = localStorage.getItem('mazeMusic');
+if(savedMusic==='1'){musicOn=true;document.getElementById('musicBtn').textContent='🔊';document.getElementById('musicBtn').classList.add('music-on');}
+
+document.addEventListener('click',()=>initAudio(),{once:true});
+document.addEventListener('touchstart',()=>initAudio(),{once:true});
+</script>
+</body>
+</html>
